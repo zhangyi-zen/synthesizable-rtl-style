@@ -1489,7 +1489,100 @@ The important property is consistency.
 
 ---
 
-## 49. Canonical rule summary
+## 49. State machines: prefer three distinct parts
+
+Use a three-part structure as the default for an FSM:
+
+1. a state-register `always_ff` block;
+2. a next-state `always_comb` block;
+3. separate logic that reads the current state.
+
+Prefer an enum with an explicit base type for the state encoding. The exact
+state-signal names are a project convention; `state` and `state_nxt` are the
+preferred examples, not mandatory names.
+
+```systemverilog
+typedef enum logic [1:0] {
+    IDLE,
+    RUN,
+    DONE
+} state_t;
+
+state_t state;
+state_t state_nxt;
+```
+
+Keep the state-register block focused on storing the state. Apart from reset,
+it should normally contain only the state update:
+
+```systemverilog
+always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        state <= IDLE;
+    end
+    else begin
+        state <= state_nxt;
+    end
+end
+```
+
+In the next-state block, begin by holding the current state, then describe only
+the transition conditions:
+
+```systemverilog
+always_comb begin
+    state_nxt = state;
+
+    case (state)
+        IDLE: begin
+            if (i_start) begin
+                state_nxt = RUN;
+            end
+        end
+
+        RUN: begin
+            if (i_done) begin
+                state_nxt = DONE;
+            end
+        end
+
+        DONE: begin
+            if (i_ack) begin
+                state_nxt = IDLE;
+            end
+        end
+    endcase
+end
+```
+
+Drive outputs, enables, counters, and other behavior in separate logic that
+reads the current state. Do not routinely mix those operations into the
+next-state block.
+
+```systemverilog
+assign o_busy = (state == RUN);
+assign o_done = (state == DONE);
+```
+
+This separation keeps state storage, transition decisions, and state-dependent
+behavior independently visible in review, simulation, and synthesis.
+
+When one FSM starts coordinating several independent responsibilities, consider
+splitting it into smaller FSMs with explicit interaction signals. Split only
+when the resulting ownership and transitions are clearer; do not create several
+machines merely to satisfy a size rule.
+
+The three-part form is a preference, not an absolute requirement. A one-process
+FSM may be clearer when state transitions and complex registered operations are
+tightly coupled and the three-part form would require excessive intermediate
+signals, repeated conditions, or scattered priority logic. In that case, keep
+the transition priority and state-dependent updates explicit. Do not change
+between one-process and three-part forms without checking cycle latency, output
+registration, and priority semantics.
+
+---
+
+## 50. Canonical rule summary
 
 | Category | Rule |
 |---|---|
@@ -1507,6 +1600,11 @@ The important property is consistency.
 | `always_ff` | Local update logic is allowed |
 | D/Q split | Use when useful; do not require it |
 | Reset | Architecture-driven; do not reset every flop by default |
+| FSM state type | Prefer an enum with an explicit base type |
+| FSM structure | Prefer separate state-register, next-state, and state-dependent logic |
+| FSM next state | Default `state_nxt` to `state`, then describe transitions |
+| FSM decomposition | Split independent responsibilities into smaller FSMs when that improves clarity |
+| One-process FSM | Allowed when tightly coupled registered logic is clearer in one process; preserve latency and priority semantics |
 | Priority | Prefer ordinary `if / else if`; use `priority case` only when case-form priority is genuinely required |
 | Case | Use plain `case` by default |
 | `unique` | Use only when mutual exclusivity and complete legal coverage are proven architectural assumptions |
@@ -1550,7 +1648,7 @@ The important property is consistency.
 
 ---
 
-## 50. Canonical example
+## 51. Canonical example
 
 ```systemverilog
 `default_nettype none
