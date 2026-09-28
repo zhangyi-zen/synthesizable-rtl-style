@@ -4,6 +4,12 @@ A portable Agent Skill for writing, reviewing, and refactoring synthesizable Sys
 
 The package follows the `SKILL.md`-based Agent Skills format. It is tested with OpenAI Codex and can also be used by tools that support this format.
 
+## Background
+
+This skill grew out of a practical set of RTL coding guidelines for ASIC-oriented digital IC design, with an emphasis on synthesizability, explicit hardware intent, tool portability, and maintainability across simulation, synthesis, DFT, STA, place-and-route, and ECO flows.
+
+A longer discussion of the design rationale and examples is available in [Synthesizable RTL Style](https://zhangyi-zen.github.io/2026/09/synthesizable-rtl-style/).
+
 ## Scope
 
 Use this skill for synthesizable design RTL, including:
